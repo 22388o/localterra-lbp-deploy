@@ -1,0 +1,13 @@
+{
+  "name": "node_integration_test",
+  "version": "0.0.1",
+  "description": "LocalTerra intergation tests.",
+  "main": "index.js",
+  "repository": "https://github.com/Local-Terra/integration_tests",
+  "author": "Sam B.",
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@terra-money/terra.js": "^2.0.15-beta.1"
+  }
+}
