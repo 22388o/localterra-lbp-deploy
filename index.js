@@ -1,15 +1,6 @@
 // create a key out of a mnemonic
-import {LCDClient, MnemonicKey, MsgExecuteContract} from "@terra-money/terra.js";
-
-const factoryCfg = {
-  trade_code_id: 12451,
-  token_addr: "terra1ys07xmvv0sahqxy6fch38naxjwt09kphw02nlq",
-  local_ust_pool_addr: "terra17h9mgy45yht6eg9mvyna52e05nfh8slg6s8tse",
-  gov_addr: "terra16428xkshv8rh0gxlrt9fhc56yer96cm203a5cr",
-  offers_addr: "terra1gevq5lfzqfd6ntehn29gasacpynklyyge2nqhp",
-  fee_collector_addr: "terra130y7xa3sakpkxy0awam58mglv0r4uln8j36tph",
-  trading_incentives_addr: "terra1e79fm7zjf6enc5cswk90p9q2wrqa40k5j62j6g"
-}
+import {LCDClient, MnemonicKey, MsgExecuteContract, MsgInstantiateContract, MsgStoreCode} from "@terra-money/terra.js";
+import * as fs from "fs";
 
 const mk = new MnemonicKey({
   mnemonic:
@@ -20,6 +11,7 @@ const terra = new LCDClient({
   chainID: 'bombay-12',
 })
 const wallet = terra.wallet(mk)
+const sender = mk.accAddress
 
 function executeMsg(msg) {
   return wallet
@@ -31,7 +23,7 @@ function executeMsg(msg) {
   })
 }
 
-async function main() {
+async function main(codeIds) {
   let min_amount = 100000000;
   let max_amount = 350000000;
   const newOffer = {
@@ -45,15 +37,31 @@ async function main() {
     },
   }
 
-  //Create Offer
-  let address = mk.accAddress
-  const offerMsg = new MsgExecuteContract(address, factoryCfg.offers_addr, newOffer)
-  console.log("*Creating new offer...")
-  executeMsg(offerMsg).then(result => {
-    //Create Trade
+  //Instantiate Factory
+
+
+  const factoryInstantiateMsg = {
+    cw20_code_id: 148,
+    gov_contract_code_id: codeIds.governance,
+    fee_collector_code_id: codeIds.fee_collector,
+    trading_incentives_code_id: codeIds.trading_incentives,
+    offer_code_id: codeIds.offer,
+    trade_code_id: codeIds.trade,
+    fee_collector_threshold: "1000000",
+    local_ust_pool_addr: sender //TODO: use actual address
+  }
+  const factoryMsg = new MsgInstantiateContract(sender, sender, codeIds.factory, factoryInstantiateMsg)
+  executeMsg(factoryMsg).then(r => {
+    console.log('Factory Result', r)
+    //Create Offeqo wkr
+    //const offerMsg = new MsgExecuteContract(sender, factoryCfg.offers_addr, newOffer)
+    //console.log("*Creating new offer...")
+    //return executeMsg(offerMsg)
+  }).then(result => {
+    //Create Tradewm   qj
     let offerId= result.logs[0].events.find(e => e.type === 'from_contract').attributes.find(a => a.key === 'offer_id').value;
     console.log('Offer created with id:', offerId)
-    let createTradeMsg = new MsgExecuteContract(address, factoryCfg.offers_addr, { new_trade: {
+    let createTradeMsg = new MsgExecuteContract(sender, factoryCfg.offers_addr, { new_trade: {
       offer_id: parseInt(offerId),
       ust_amount: min_amount + '',
       counterparty: "terra17h9mgy45yht6eg9mvyna52e05nfh8slg6s8tse",
@@ -65,8 +73,43 @@ async function main() {
     let tradeAddr = result.logs[0].events.find(e => e.type === 'instantiate_contract').attributes.find(a => a.key === 'contract_address').value;
     console.log('Trade created with address:', tradeAddr)
     //Query for Trade in Offer contract
-
   })
 }
 
-await main()
+function createStoreMsg(contract) {
+  console.log(`*Storing ${contract}*`)
+  const wasm = fs.readFileSync(`../contracts/artifacts/${contract}.wasm`, {highWaterMark: 16, encoding: 'base64'});
+  return new MsgStoreCode(sender, wasm)
+}
+
+function getCodeIdFromResult(result) {
+  return parseInt(result.logs[0].events.find(e => e.type === 'store_code').attributes.find(e => e.key === 'code_id').value)
+}
+
+async function deploy() {
+  let codeIds = {}
+  executeMsg(createStoreMsg('factory')).then(r => {
+    codeIds.factory = getCodeIdFromResult(r)
+    return executeMsg(createStoreMsg('fee_collector'))
+  }).then(r => {
+    codeIds.fee_collector = getCodeIdFromResult(r)
+    return executeMsg(createStoreMsg('governance'))
+  }).then(r => {
+    codeIds.governance = getCodeIdFromResult(r)
+    return executeMsg(createStoreMsg('offer'))
+  }).then(r => {
+    codeIds.offer = getCodeIdFromResult(r)
+    return executeMsg(createStoreMsg('trade'))
+  }).then(r => {
+    codeIds.trade = getCodeIdFromResult(r)
+    return executeMsg(createStoreMsg('trading_incentives'))
+  }).then(r => {
+    codeIds.trading_incentives = getCodeIdFromResult(r)
+    console.log('Deploy Finished!', JSON.stringify(codeIds))
+  }).catch(e => {
+    console.log("Error", e);
+  })
+}
+
+await main({"factory":13031,"fee_collector":13032,"governance":13033,"offer":13034,"trade":13035,"trading_incentives":13036})
+// await deploy()
