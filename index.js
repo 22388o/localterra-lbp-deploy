@@ -128,7 +128,7 @@ async function test(codeIds) {
 
 function createStoreMsg(contract) {
   console.log(`*Storing ${contract}*`);
-  const wasm = fs.readFileSync(`../contracts/artifacts/${contract}.wasm`, {
+  const wasm = fs.readFileSync(`${process.env.CONTRACTS}/artifacts/${contract}.wasm`, {
     highWaterMark: 16,
     encoding: "base64",
   });
