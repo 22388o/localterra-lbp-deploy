@@ -1,5 +1,7 @@
 // create a key out of a mnemonic
 import {
+  Coin,
+  Coins,
   LCDClient,
   MnemonicKey,
   MsgExecuteContract,
@@ -55,6 +57,7 @@ async function test(codeIds) {
   let factoryAddr = process.env.FACTORY;
   let min_amount = 100000000;
   let max_amount = 350000000;
+  let tradeAddr;
 
   let setup = new Promise((resolve, reject) => {
     if (factoryAddr) {
@@ -85,7 +88,7 @@ async function test(codeIds) {
       const newOffer = {
         create: {
           offer: {
-            offer_type: "buy",
+            offer_type: "sell",
             fiat_currency: "BRL",
             min_amount,
             max_amount,
@@ -97,11 +100,11 @@ async function test(codeIds) {
         factoryCfg.offers_addr,
         newOffer
       );
-      console.log("*Creating Offer*")
+      console.log("*Creating Offer*");
       return executeMsg(createOfferMsg);
     })
     .then((r) => {
-      let offerId = getAttribute(r, "from_contract", "offer_id")
+      let offerId = getAttribute(r, "from_contract", "id");
       let createTradeMsg = new MsgExecuteContract(
         sender,
         factoryCfg.offers_addr,
@@ -113,25 +116,51 @@ async function test(codeIds) {
           },
         }
       );
-      console.log("*Creating Trade*")
+      console.log("*Creating Trade*");
       return executeMsg(createTradeMsg);
     })
     .then((result) => {
-      //Trade Created
-      let tradeAddr = result.logs[0].events
+      tradeAddr = result.logs[0].events
         .find((e) => e.type === "instantiate_contract")
         .attributes.find((a) => a.key === "contract_address").value;
-      console.log("Trade created with address:", tradeAddr);
-      //Query for Trade in Offer contract
+      console.log("**Trade created with address:", tradeAddr);
+      //Send UST and fund trade
+      const coin = Coin.fromData({ denom: "uusd", amount: min_amount + "" });
+      const coins = new Coins([coin]);
+      let fundEscrowMsg = new MsgExecuteContract(
+        sender,
+        tradeAddr,
+        { fund_escrow: {} },
+        coins
+      );
+      console.log("*Funding Escrow*");
+      return executeMsg(fundEscrowMsg);
+    })
+    .then((r) => {
+      if (r.txhash) {
+        console.log("**Escrow Funded**");
+      } else {
+        console.log("%Error%");
+      }
+      const releaseMsg = new MsgExecuteContract(sender, tradeAddr, {
+        release: {},
+      });
+      executeMsg(releaseMsg);
+    })
+    .then((r) => {
+      console.log("Result:", r);
     });
 }
 
 function createStoreMsg(contract) {
   console.log(`*Storing ${contract}*`);
-  const wasm = fs.readFileSync(`${process.env.CONTRACTS}/artifacts/${contract}.wasm`, {
-    highWaterMark: 16,
-    encoding: "base64",
-  });
+  const wasm = fs.readFileSync(
+    `${process.env.CONTRACTS}/artifacts/${contract}.wasm`,
+    {
+      highWaterMark: 16,
+      encoding: "base64",
+    }
+  );
   return new MsgStoreCode(sender, wasm);
 }
 
@@ -170,6 +199,7 @@ async function deploy() {
     })
     .then((r) => {
       codeIds.trading_incentives = getCodeIdFromResult(r);
+      fs.writeFileSync("codeIds.json", JSON.stringify(codeIds), "utf8");
       console.log("Deploy Finished!", JSON.stringify(codeIds));
       test(codeIds);
     })
@@ -181,13 +211,18 @@ async function deploy() {
 if (process.env.DEPLOY) {
   await deploy();
 } else {
-  //TODO: Load from file
-  await test({
-    factory: 13332,
-    fee_collector: 13333,
-    governance: 13334,
-    offer: 13335,
-    trade: 13336,
-    trading_incentives: 13337,
-  });
+  let codeIds = JSON.parse(fs.readFileSync("codeIds.json", "utf8"));
+  await test(codeIds);
+}
+
+function fundEscrow() {
+  const coin = Coin.fromData({ denom: "uusd", amount: 100000000 });
+  const coins = new Coins([coin]);
+  let fundEscrowMsg = new MsgExecuteContract(
+    sender,
+    "terra1mzt59aqxawkwcpfhrmyykmuzz9y3zqva3zydvf",
+    { fund_escrow: {} },
+    coins
+  );
+  return executeMsg(fundEscrowMsg);
 }
