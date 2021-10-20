@@ -9,6 +9,7 @@ import {
   MsgStoreCode,
 } from "@terra-money/terra.js";
 import * as fs from "fs";
+import findFilesInDir from "./findFilesInDir.js";
 
 const maker_key = new MnemonicKey({
   mnemonic:
@@ -164,14 +165,16 @@ async function test(codeIds) {
 
 function createStoreMsg(contract) {
   console.log(`*Storing ${contract}*`);
-  const wasm = fs.readFileSync(
-    `${process.env.CONTRACTS}/artifacts/${contract}.wasm`,
-    {
-      highWaterMark: 16,
-      encoding: "base64",
-    }
-  );
+  const wasm = fs.readFileSync(contract, {
+    highWaterMark: 16,
+    encoding: "base64",
+  });
   return new MsgStoreCode(maker, wasm);
+}
+
+function getContractNameFromPath(path) {
+  let regex = RegExp(/artifacts\/(.*?)\.wasm/, 'i')
+  return path.match(regex)[1]
 }
 
 function getCodeIdFromResult(result) {
@@ -183,50 +186,42 @@ function getAttribute(result, event, attribute) {
     .find((e) => e.type === event)
     .attributes.find((e) => e.key === attribute).value;
 }
-
-async function deploy() {
+async function deploy(contract) {
   let codeIds = {};
-  executeMsg(createStoreMsg("factory"))
-    .then((r) => {
-      codeIds.factory = getCodeIdFromResult(r);
-      return executeMsg(createStoreMsg("fee_collector"));
-    })
-    .then((r) => {
-      codeIds.fee_collector = getCodeIdFromResult(r);
-      return executeMsg(createStoreMsg("governance"));
-    })
-    .then((r) => {
-      codeIds.governance = getCodeIdFromResult(r);
-      return executeMsg(createStoreMsg("offer"));
-    })
-    .then((r) => {
-      codeIds.offer = getCodeIdFromResult(r);
-      return executeMsg(createStoreMsg("trade"));
-    })
-    .then((r) => {
-      codeIds.trade = getCodeIdFromResult(r);
-      return executeMsg(createStoreMsg("trading_incentives"));
-    })
-    .then((r) => {
-      codeIds.trading_incentives = getCodeIdFromResult(r);
-      fs.writeFileSync("codeIds.json", JSON.stringify(codeIds), "utf8");
-      console.log("Deploy Finished!", JSON.stringify(codeIds));
-      test(codeIds);
-    })
-    .catch((e) => {
-      console.log("Error", e);
-    });
-}
+  let contracts = findFilesInDir(process.env.CONTRACTS, ".wasm");
 
-if (process.env.DEPLOY) {
-  await deploy();
-} else if (process.env.FUND) {
-  fundEscrow(process.env.FUND);
-} else if (process.env.RELEASE) {
-  release(process.env.RELEASE, taker_wallet);
-} else {
-  let codeIds = JSON.parse(fs.readFileSync("codeIds.json", "utf8"));
-  await test(codeIds);
+  if (contract.toLowerCase() === "all") {
+    for (const i in contracts) {
+      let c = contracts[i];
+      let r = await executeMsg(createStoreMsg(c));
+      codeIds[getContractNameFromPath(c)] = getCodeIdFromResult(r);
+    }
+    fs.writeFileSync("codeIds.json", JSON.stringify(codeIds), "utf8");
+    console.log("Deploy Finished!", JSON.stringify(codeIds));
+    await test(codeIds);
+  } else {
+    //Filter by name
+    let codeIds = JSON.parse(fs.readFileSync("codeIds.json", "utf8"));
+    console.log(codeIds);
+    let names;
+    if (contract.indexOf(",")) {
+      names = contract.split(",");
+    } else {
+      names = [contract];
+    }
+    for (const i in names) {
+      let name = names[i];
+      for (const i in contracts) {
+        let c = contracts[i];
+        if (c.indexOf(name) >= 0) {
+          let r = await executeMsg(createStoreMsg(c));
+          codeIds[getContractNameFromPath(c)] = getCodeIdFromResult(r);
+        }
+      }
+    }
+    console.log("Deploy Finished!", JSON.stringify(codeIds));
+    await test(codeIds);
+  }
 }
 
 function fundEscrow(tradeAddr) {
@@ -259,4 +254,15 @@ function release(tradeAddr, wallet) {
   executeMsg(releaseMsg, wallet).then((r) => {
     r.toJSON().then((r) => console.log(r));
   });
+}
+
+if (process.env.DEPLOY) {
+  await deploy(process.env.DEPLOY);
+} else if (process.env.FUND) {
+  fundEscrow(process.env.FUND);
+} else if (process.env.RELEASE) {
+  release(process.env.RELEASE, taker_wallet);
+} else {
+  let codeIds = JSON.parse(fs.readFileSync("codeIds.json", "utf8"));
+  await test(codeIds);
 }
