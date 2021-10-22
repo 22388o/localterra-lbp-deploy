@@ -10,16 +10,33 @@ import {
 } from "@terra-money/terra.js";
 import * as fs from "fs";
 import findFilesInDir from "./findFilesInDir.js";
-const network = "bombay-12";
-const lcdURL = "https://bombay-lcd.terra.dev";
-const maker_key = new MnemonicKey({
-  mnemonic:
-    "uncle simple tide bundle apart absurd tenant fluid slam actor caught month hip tornado cattle regular nerve brand tower boy alert crash good neck"
-});
-const taker_key = new MnemonicKey({
-  mnemonic:
-    "paddle prefer true embody scissors romance train replace flush rather until clap intact hello used cricket limb cake nut permit toss stove cute easily"
-});
+
+let network = "bombay-12";
+let lcdURL = "https://bombay-lcd.terra.dev";
+let maker_seed =
+  "uncle simple tide bundle apart absurd tenant fluid slam actor caught month hip tornado cattle regular nerve brand tower boy alert crash good neck";
+let taker_seed =
+  "paddle prefer true embody scissors romance train replace flush rather until clap intact hello used cricket limb cake nut permit toss stove cute easily";
+let cw20_code_id = 148;
+
+if (process.env.NETWORK === "localterra") {
+  cw20_code_id = process.env.CW20ID;
+  if (!cw20_code_id) {
+    console.error(
+      "Please deploy CW20 and pass its code to the CW20ID env var."
+    );
+    process.exit();
+  }
+  network = "localterra";
+  lcdURL = "http://localhost:1317";
+  maker_seed =
+    "index light average senior silent limit usual local involve delay update rack cause inmate wall render magnet common feature laundry exact casual resource hundred";
+  taker_seed =
+    "prefer forget visit mistake mixture feel eyebrow autumn shop pair address airport diesel street pass vague innocent poem method awful require hurry unhappy shoulder";
+}
+let maker_key = new MnemonicKey({ mnemonic: maker_seed });
+let taker_key = new MnemonicKey({ mnemonic: taker_seed });
+
 const terra = new LCDClient({
   URL: lcdURL,
   chainID: network
@@ -45,7 +62,7 @@ function executeMsg(msg, wallet = maker_wallet) {
 function instantiateFactory(codeIds) {
   //Instantiate Factory
   const factoryInstantiateMsg = {
-    cw20_code_id: 148,
+    cw20_code_id,
     gov_contract_code_id: codeIds.governance,
     fee_collector_code_id: codeIds.fee_collector,
     trading_incentives_code_id: codeIds.trading_incentives,
