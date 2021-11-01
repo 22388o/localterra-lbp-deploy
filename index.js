@@ -154,7 +154,7 @@ async function test(codeIds) {
       //Send UST and fund trade
       const coin = Coin.fromData({
         denom: "uusd",
-        amount: min_amount + ""
+        amount: min_amount * 2 + ""
       });
       const coins = new Coins([coin]);
       let fundEscrowMsg = new MsgExecuteContract(
