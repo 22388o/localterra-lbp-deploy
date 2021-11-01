@@ -62,7 +62,7 @@ function executeMsg(msg, wallet = maker_wallet) {
 function instantiateFactory(codeIds) {
   //Instantiate Factory
   const factoryInstantiateMsg = {
-    cw20_code_id,
+    cw20_code_id: parseInt(cw20_code_id),
     gov_contract_code_id: codeIds.governance,
     fee_collector_code_id: codeIds.fee_collector,
     trading_incentives_code_id: codeIds.trading_incentives,
