@@ -3,11 +3,21 @@
   "version": "0.0.1",
   "description": "LocalTerra intergation tests.",
   "main": "index.js",
+  "scripts": {
+    "bombay:all": "DEPLOY=all CONTRACTS=../localterra-contracts/artifacts ./node_modules/node/bin/node index.js",
+    "terrarium:all": "DEPLOY=all NETWORK=localterra CW20ID=1 CONTRACTS=../localterra-contracts/artifacts ./node_modules/node/bin/node index.js"
+  },
   "repository": "https://github.com/Local-Terra/integration_tests",
   "author": "Sam B.",
+  "contributors": [
+    "Lunarevolution1972"
+  ],
   "type": "module",
   "license": "MIT",
   "dependencies": {
     "@terra-money/terra.js": "^2.0.15-beta.1"
+  },
+  "devDependencies": {
+    "node": "^16.13.0"
   }
 }

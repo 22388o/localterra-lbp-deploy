@@ -16,6 +16,20 @@ On the 1st run, you must run it with `DEPLOY=all` to upload all the contracts to
 
 **FACTORY**: factory address, if Factory is already instantiated you can pass its address on this parameter to skip the deployment process.
 
-Example:
+# Examples
 
-`DEPLOY=all CONTRACTS=../contracts/artifacts node index.js`
+```bash
+npm run bombay:all
+
+# expands to
+
+DEPLOY=all CONTRACTS=../localterra-contracts/artifacts ./node_modules/node/bin/node index.js
+```
+
+```bash
+npm run terrarium:all
+
+# expands to
+
+DEPLOY=all NETWORK=localterra CW20ID=1 CONTRACTS=../localterra-contracts/artifacts ./node_modules/node/bin/node index.js
+```
