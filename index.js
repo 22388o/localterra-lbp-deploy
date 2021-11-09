@@ -28,7 +28,7 @@ if (process.env.NETWORK === "localterra") {
     process.exit();
   }
   network = "localterra";
-  lcdURL = "http://167.71.21.20:1317";
+  lcdURL = "http://143.244.190.1:3060";
   maker_seed =
     "index light average senior silent limit usual local involve delay update rack cause inmate wall render magnet common feature laundry exact casual resource hundred";
   taker_seed =
