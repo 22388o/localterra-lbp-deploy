@@ -206,6 +206,11 @@ function getAttribute(result, event, attribute) {
     .find(e => e.type === event)
     .attributes.find(e => e.key === attribute).value;
 }
+
+function timeout(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function deploy(contract) {
   let codeIds = {};
   let contracts = findFilesInDir(process.env.CONTRACTS, ".wasm");
@@ -214,6 +219,10 @@ async function deploy(contract) {
     for (const i in contracts) {
       let c = contracts[i];
       let r = await executeMsg(createStoreMsg(c));
+      //TODO: remove hack
+      console.log('waiting')
+      await timeout(1000)
+      console.log('continue')
       codeIds[getContractNameFromPath(c)] = getCodeIdFromResult(r);
     }
     fs.writeFileSync("codeIds.json", JSON.stringify(codeIds), "utf8");
