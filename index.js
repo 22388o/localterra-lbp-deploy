@@ -45,8 +45,8 @@ const maker = maker_key.accAddress;
 const maker_wallet = terra.wallet(maker_key);
 const taker = taker_key.accAddress;
 const taker_wallet = terra.wallet(taker_key);
-const min_amount = 120000000;
-const max_amount = 360000000;
+const min_amount = '120000000';
+const max_amount = '360000000';
 const offer_type = "buy";
 
 function executeMsg(msg, wallet = maker_wallet) {
