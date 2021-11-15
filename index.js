@@ -6,10 +6,14 @@ import {
   MnemonicKey,
   MsgExecuteContract,
   MsgInstantiateContract,
-  MsgStoreCode
+  MsgStoreCode,
 } from "@terra-money/terra.js";
 import * as fs from "fs";
 import findFilesInDir from "./findFilesInDir.js";
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 let network = "bombay-12";
 let lcdURL = "https://bombay-lcd.terra.dev";
@@ -39,22 +43,22 @@ let taker_key = new MnemonicKey({ mnemonic: taker_seed });
 
 const terra = new LCDClient({
   URL: lcdURL,
-  chainID: network
+  chainID: network,
 });
 const maker = maker_key.accAddress;
 const maker_wallet = terra.wallet(maker_key);
 const taker = taker_key.accAddress;
 const taker_wallet = terra.wallet(taker_key);
-const min_amount = '120000000';
-const max_amount = '360000000';
+const min_amount = "120000000";
+const max_amount = "360000000";
 const offer_type = "buy";
 
 function executeMsg(msg, wallet = maker_wallet) {
   return wallet
     .createAndSignTx({
-      msgs: [msg]
+      msgs: [msg],
     })
-    .then(tx => {
+    .then((tx) => {
       return terra.tx.broadcast(tx);
     });
 }
@@ -69,7 +73,7 @@ function instantiateFactory(codeIds) {
     offer_code_id: codeIds.offer,
     trade_code_id: codeIds.trade,
     fee_collector_threshold: "1000000",
-    local_ust_pool_addr: maker //TODO: use actual address
+    local_ust_pool_addr: maker, //TODO: use actual address
   };
   const instantiateFactoryMsg = new MsgInstantiateContract(
     maker,
@@ -80,6 +84,85 @@ function instantiateFactory(codeIds) {
   return executeMsg(instantiateFactoryMsg);
 }
 
+async function create_offers(offers_addr) {
+  const offers = [
+    {
+      create: {
+        offer: {
+          offer_type: "buy",
+          fiat_currency: "COP",
+          min_amount,
+          max_amount,
+        },
+      },
+    },
+    {
+      create: {
+        offer: {
+          offer_type: "sell",
+          fiat_currency: "BRL",
+          min_amount,
+          max_amount,
+        },
+      },
+    },
+    {
+      create: {
+        offer: {
+          offer_type: "buy",
+          fiat_currency: "USD",
+          min_amount,
+          max_amount,
+        },
+      },
+    },
+  ];
+
+  let finalResult;
+
+  for (let idx = 0; idx < offers.length; idx++) {
+    const offer = offers[idx];
+
+    let createOfferMsg = new MsgExecuteContract(maker, offers_addr, offer);
+
+    console.log(`*Creating Offer ${idx}*`);
+
+    const result = await executeMsg(createOfferMsg);
+    console.log(`Created Offer ${idx}:`, result);
+    finalResult = result;
+  }
+  return finalResult;
+}
+
+async function query_offers(offers_addr) {
+  const queries = [
+    {
+      offers_query: {
+        limit: 5,
+        last_value: 0,
+        owner: "",
+      },
+    },
+    {
+      offers_query: {
+        limit: 2,
+        last_value: 1,
+        owner: "terra1333veey879eeqcff8j3gfcgwt8cfrg9mq20v6f",
+      },
+    },
+  ];
+
+  for (let idx = 0; idx < queries.length; idx++) {
+    const query = queries[idx];
+
+    console.log(`*Querying Offer Contract, Query #${idx}*`, query);
+
+    const result = await terra.wasm.contractQuery(offers_addr, query);
+
+    console.log(`Offer Query #${idx} Result:`, result);
+  }
+}
+
 async function test(codeIds) {
   let factoryCfg;
   let factoryAddr = process.env.FACTORY;
@@ -88,12 +171,12 @@ async function test(codeIds) {
   let setup = new Promise((resolve, reject) => {
     if (factoryAddr) {
       console.log("*Querying Factory Config*");
-      terra.wasm.contractQuery(factoryAddr, { config: {} }).then(r => {
+      terra.wasm.contractQuery(factoryAddr, { config: {} }).then((r) => {
         resolve(r);
       });
     } else {
       console.log("*Instantiating Factory*");
-      instantiateFactory(codeIds).then(r => {
+      instantiateFactory(codeIds).then((r) => {
         const factoryAddr = getAttribute(
           r,
           "instantiate_contract",
@@ -101,35 +184,42 @@ async function test(codeIds) {
         );
         console.log("**Factory Addr:", factoryAddr);
         console.log("*Querying Factory Config*");
-        terra.wasm.contractQuery(factoryAddr, { config: {} }).then(r => {
+        terra.wasm.contractQuery(factoryAddr, { config: {} }).then((r) => {
           resolve(r);
         });
       });
     }
   });
   setup
-    .then(r => {
+    .then(async (r) => {
       factoryCfg = r;
       console.log("Factory Config result", r);
+
+      const createOfferResult = await create_offers(factoryCfg.offers_addr);
+      await query_offers(factoryCfg.offers_addr);
+
+      return createOfferResult;
+    })
+    .then((r) => {
+      console.log("*Creating Offer for Trade*");
       const newOffer = {
         create: {
           offer: {
             offer_type,
             fiat_currency: "BRL",
             min_amount,
-            max_amount
-          }
-        }
+            max_amount,
+          },
+        },
       };
       let createOfferMsg = new MsgExecuteContract(
         maker,
         factoryCfg.offers_addr,
         newOffer
       );
-      console.log("*Creating Offer*");
       return executeMsg(createOfferMsg);
     })
-    .then(r => {
+    .then((r) => {
       let offerId = getAttribute(r, "from_contract", "id");
       let createTradeMsg = new MsgExecuteContract(
         maker,
@@ -138,23 +228,23 @@ async function test(codeIds) {
           new_trade: {
             offer_id: parseInt(offerId),
             ust_amount: min_amount + "",
-            counterparty: taker
-          }
+            counterparty: taker,
+          },
         }
       );
       console.log("*Creating Trade*");
       return executeMsg(createTradeMsg);
     })
-    .then(result => {
+    .then((result) => {
       tradeAddr = result.logs[0].events
-        .find(e => e.type === "instantiate_contract")
-        .attributes.find(a => a.key === "contract_address").value;
+        .find((e) => e.type === "instantiate_contract")
+        .attributes.find((a) => a.key === "contract_address").value;
       console.log("**Trade created with address:", tradeAddr);
       console.log(`https://finder.terra.money/${network}/address/${tradeAddr}`);
       //Send UST and fund trade
       const coin = Coin.fromData({
         denom: "uusd",
-        amount: min_amount * 2 + ""
+        amount: min_amount * 2 + "",
       });
       const coins = new Coins([coin]);
       let fundEscrowMsg = new MsgExecuteContract(
@@ -166,19 +256,19 @@ async function test(codeIds) {
       console.log("*Funding Escrow*");
       return executeMsg(fundEscrowMsg, taker_wallet);
     })
-    .then(r => {
+    .then((r) => {
       if (r.txhash) {
         console.log("**Escrow Funded**");
       } else {
         console.log("%Error%");
       }
       const releaseMsg = new MsgExecuteContract(taker, tradeAddr, {
-        release: {}
+        release: {},
       });
       console.log("*Releasing Trade*");
       return executeMsg(releaseMsg, taker_wallet);
     })
-    .then(r => {
+    .then((r) => {
       console.log("**Trade Released**");
     });
 }
@@ -187,7 +277,7 @@ function createStoreMsg(contract) {
   console.log(`*Storing ${contract}*`);
   const wasm = fs.readFileSync(contract, {
     highWaterMark: 16,
-    encoding: "base64"
+    encoding: "base64",
   });
   return new MsgStoreCode(maker, wasm);
 }
@@ -203,12 +293,12 @@ function getCodeIdFromResult(result) {
 
 function getAttribute(result, event, attribute) {
   return result.logs[0].events
-    .find(e => e.type === event)
-    .attributes.find(e => e.key === attribute).value;
+    .find((e) => e.type === event)
+    .attributes.find((e) => e.key === attribute).value;
 }
 
 function timeout(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function deploy(contract) {
@@ -220,9 +310,9 @@ async function deploy(contract) {
       let c = contracts[i];
       let r = await executeMsg(createStoreMsg(c));
       //TODO: remove hack
-      console.log('waiting')
-      await timeout(1000)
-      console.log('continue')
+      console.log("waiting");
+      await timeout(1000);
+      console.log("continue");
       codeIds[getContractNameFromPath(c)] = getCodeIdFromResult(r);
     }
     fs.writeFileSync("codeIds.json", JSON.stringify(codeIds), "utf8");
@@ -256,7 +346,7 @@ async function deploy(contract) {
 function fundEscrow(tradeAddr) {
   const coin = Coin.fromData({
     denom: "uusd",
-    amount: min_amount + ""
+    amount: min_amount + "",
   });
   const coins = new Coins([coin]);
   let fundEscrowMsg = new MsgExecuteContract(
@@ -266,7 +356,7 @@ function fundEscrow(tradeAddr) {
     coins
   );
   console.log("*Funding Escrow*");
-  executeMsg(fundEscrowMsg, taker_wallet).then(r => {
+  executeMsg(fundEscrowMsg, taker_wallet).then((r) => {
     console.log("Result", r);
     if (r.txhash) {
       release(tradeAddr, taker_wallet);
@@ -277,11 +367,11 @@ function fundEscrow(tradeAddr) {
 function release(tradeAddr, wallet) {
   console.log("Sending release msg");
   const releaseMsg = new MsgExecuteContract(taker, tradeAddr, {
-    release: {}
+    release: {},
   });
   console.log("Release Msg:", releaseMsg);
-  executeMsg(releaseMsg, wallet).then(r => {
-    r.toJSON().then(r => console.log(r));
+  executeMsg(releaseMsg, wallet).then((r) => {
+    r.toJSON().then((r) => console.log(r));
   });
 }
 
@@ -295,3 +385,6 @@ if (process.env.DEPLOY) {
   let codeIds = JSON.parse(fs.readFileSync("codeIds.json", "utf8"));
   await test(codeIds);
 }
+
+// await create_offers("terra19qlfxw9sps07pxnqa5ecw73nyjqmsktut9tlhj");
+// await query_offers("terra19qlfxw9sps07pxnqa5ecw73nyjqmsktut9tlhj");
