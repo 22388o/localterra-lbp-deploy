@@ -140,7 +140,6 @@ async function query_offers(offers_addr) {
       offers_query: {
         limit: 5,
         last_value: 0,
-        owner: "",
       },
     },
     {
