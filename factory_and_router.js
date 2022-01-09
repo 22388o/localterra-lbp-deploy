@@ -29,3 +29,4 @@ async function instantiateFactory(codeIds) {
 
 let codeIds = JSON.parse(fs.readFileSync("codeIds.json", "utf8"));
 await instantiateFactory(codeIds)
+//NETWORK=localterra node factory_and_router.js

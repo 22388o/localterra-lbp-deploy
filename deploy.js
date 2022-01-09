@@ -5,8 +5,7 @@ import {
 } from "@terra-money/terra.js";
 import * as fs from "fs";
 import findFilesInDir from "./findFilesInDir.js";
-
-import getAttribute from "./shared.js";
+import { getAttribute } from "./shared.js";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -110,3 +109,4 @@ async function deploy(contract) {
 }
 
 await deploy(process.env.DEPLOY);
+//NETWORK=localterra CONTRACTS=../../astroport/astroport-lbport/artifacts DEPLOY=all node deploy.js

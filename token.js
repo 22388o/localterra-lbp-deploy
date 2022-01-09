@@ -23,3 +23,4 @@ async function instantiateToken(codeIds) {
 
 let codeIds = JSON.parse(fs.readFileSync("codeIds.json", "utf8"));
 await instantiateToken(codeIds)
+//NETWORK=localterra SUPPLY=9000000 NAME="Local Terra Token" SYMBOL=LOCAL node token.js
