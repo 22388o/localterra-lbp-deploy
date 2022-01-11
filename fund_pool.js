@@ -13,6 +13,8 @@ async function fundPool() {
     }
   }
   const ust = Coin.fromData({ denom: 'uusd', amount: parseInt(process.env.UST_AMOUNT) * 1_000_000 })
+  console.log('ust', ust);
+  //TODO: Change to ApproveTransfer on CW20 + ProvideLiquidity on the LBP contract
   const transferTokenMsg = new MsgExecuteContract(maker, process.env.TOKEN, cw20transfer, [ust])
   const res = await executeMsg(transferTokenMsg)
   console.log(res)
