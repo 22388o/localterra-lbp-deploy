@@ -6,20 +6,46 @@ import {
 import { executeMsg, maker } from "./shared.js";
 
 async function fundPool() {
-  const cw20transfer = {
-    transfer: {
-      amount: (parseInt(process.env.TOKEN_AMOUNT) * 1_000_000) + "",
-      recipient: process.env.POOL
+  console.log('maker', maker)
+  //Increase token allowance for the pool contract
+  const tokenAmount = parseInt(process.env.TOKEN_AMOUNT) * 1_000_000
+  const ustAmount = parseInt(process.env.UST_AMOUNT) * 1_000_000
+
+  const increaseAllowanceMsg = {
+    increase_allowance: {
+      spender: process.env.POOL,
+      amount: tokenAmount + ''
     }
   }
-  const ust = Coin.fromData({ denom: 'uusd', amount: parseInt(process.env.UST_AMOUNT) * 1_000_000 })
-  console.log('ust', ust);
-  //TODO: Change to ApproveTransfer on CW20 + ProvideLiquidity on the LBP contract
-  const transferTokenMsg = new MsgExecuteContract(maker, process.env.TOKEN, cw20transfer, [ust])
-  const res = await executeMsg(transferTokenMsg)
-  console.log(res)
+  console.log('increase allowance msg:', increaseAllowanceMsg)
+  let increaseAllowanceRes = await executeMsg(new MsgExecuteContract(maker, process.env.TOKEN, increaseAllowanceMsg))
+  console.log('increase allowance res:', increaseAllowanceRes)
+
+  //Execute ProvideLiquidity message on the pool contract
+  const provideLiquidityMsg = {
+    provide_liquidity: {
+      assets: [{
+        info: {
+          token: {
+            contract_addr: process.env.TOKEN
+          }
+        },
+        amount: tokenAmount + ''
+      }, {
+        info: {
+          native_token: {
+            denom: 'uusd'
+          },
+        },
+        amount: ustAmount + ''
+      }]
+    }
+  }
+  const ust = Coin.fromData({ denom: 'uusd', amount: ustAmount })
+  const res = await executeMsg(new MsgExecuteContract(maker, process.env.POOL, provideLiquidityMsg, [ust]))
+  console.log('provide liquidity res:', res)
 }
 
 await fundPool()
 
-//POOL=terra1cd6m4axc85taqj0aeuuphvhgqnjxhlavzke5gd TOKEN_AMOUNT=9000000 UST_AMOUNT=110000 TOKEN=terra19sf8yfha0a6knxl8mx2dqplwf0qxje2q8p2rkh node fund_pool.js
+//NETWORK=localterra POOL=terra1s9z2mnszsagj5g62cn0e2gak2a3xkekx28hn50 TOKEN_AMOUNT=9000000 UST_AMOUNT=110000 TOKEN=terra1jq8u49sx4h34ugsz2qvzk45uds8pqgywk4jv76 node fund_pool.js
