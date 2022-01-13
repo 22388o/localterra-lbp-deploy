@@ -42,4 +42,4 @@ async function createPair() {
 }
 
 await createPair()
-//FACTORY=terra12s74xfyk7uz9pkruqt5d9cm8s3rzjuqpv5rg8r TOKEN=terra19sf8yfha0a6knxl8mx2dqplwf0qxje2q8p2rkh  TOKEN_START_WEIGHT=99 TOKEN_END_WEIGHT=20 UST_START_WEIGHT=1 UST_END_WEIGHT=80 HOURS=72 DESCRIPTION="Local Terra LBP" MINUTES_TO_START=15 NETWORK=localterra UST_AMOUNT=110000 TOKEN_AMOUNT=9000000 node create_pair.js
+//NETWORK=localterra TOKEN=terra1grdjlgqhpm5whs42hmleuf5f8z3qfmn7e8fcez FACTORY=terra12s74xfyk7uz9pkruqt5d9cm8s3rzjuqpv5rg8r TOKEN_START_WEIGHT=99 TOKEN_END_WEIGHT=20 UST_START_WEIGHT=1 UST_END_WEIGHT=80 HOURS=72 DESCRIPTION="Local Terra LBP" MINUTES_TO_START=15 NETWORK=localterra UST_AMOUNT=110000 TOKEN_AMOUNT=9000000 node create_pair.js

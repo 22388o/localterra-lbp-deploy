@@ -3,11 +3,14 @@ import {
   Coin,
   MsgExecuteContract,
 } from "@terra-money/terra.js";
-import { executeMsg, maker } from "./shared.js";
+import { executeMsg, terra, maker } from "./shared.js";
 
 async function fundPool() {
   console.log('maker', maker)
   //Increase token allowance for the pool contract
+  const pairInfo = await terra.wasm.contractQuery(process.env.POOL, {pair:{}})
+  console.log('pairInfo', pairInfo)
+  return
   const tokenAmount = parseInt(process.env.TOKEN_AMOUNT) * 1_000_000
   const ustAmount = parseInt(process.env.UST_AMOUNT) * 1_000_000
 
@@ -47,5 +50,4 @@ async function fundPool() {
 }
 
 await fundPool()
-
 //NETWORK=localterra POOL=terra1s9z2mnszsagj5g62cn0e2gak2a3xkekx28hn50 TOKEN_AMOUNT=9000000 UST_AMOUNT=110000 TOKEN=terra1jq8u49sx4h34ugsz2qvzk45uds8pqgywk4jv76 node fund_pool.js
